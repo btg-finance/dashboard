@@ -1,0 +1,25 @@
+node_modules/
+.next/
+.next-build/
+out/
+build/
+
+# Secrets
+.env
+.env.local
+.env*.local
+*service-account*.json
+
+# Logs
+npm-debug.log*
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build cache
+tsconfig.tsbuildinfo
+
+# Google sign-in client downloads
+client_secret*.json
