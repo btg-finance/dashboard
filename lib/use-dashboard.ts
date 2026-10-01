@@ -8,9 +8,12 @@
  */
 
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
+import { NO_ACCESS, type Access } from './access';
 import type { DashboardData, SessionUser } from './types';
 
 export const dashboardKey = ['dashboard'] as const;
+
+const SESSION_REFRESH_MS = 60_000;
 
 export class ApiError extends Error {
   constructor(
@@ -53,12 +56,22 @@ export function useDashboard(): UseQueryResult<DashboardData, Error> {
   });
 }
 
+/**
+ * Who is signed in and what they may do. Asked again every minute, so a tab
+ * left open picks up a change of role, or the end of access, without a reload.
+ */
 export function useSession() {
   return useQuery({
     queryKey: ['session'],
-    queryFn: () => getJson<{ user: SessionUser | null }>('/api/auth/session'),
-    staleTime: 60_000,
+    queryFn: () => getJson<{ user: SessionUser | null; access: Access | null }>('/api/auth/session'),
+    staleTime: SESSION_REFRESH_MS,
+    refetchInterval: SESSION_REFRESH_MS,
   });
+}
+
+/** What the signed-in person may do. Nothing, until the session is known. */
+export function useAccess(): Access {
+  return useSession().data?.access ?? NO_ACCESS;
 }
 
 export async function signOut(): Promise<void> {

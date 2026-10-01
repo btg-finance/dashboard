@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { ChatError, askModel } from '@/lib/ai';
-import { currentUser, isSameOrigin } from '@/lib/auth';
+import { currentSession, isSameOrigin } from '@/lib/auth';
 import { buildContext, buildViewing } from '@/lib/chat-context';
 import { systemPrompt } from '@/lib/chat-prompt';
 import { env } from '@/lib/env';
@@ -37,9 +37,12 @@ export async function POST(request: Request) {
   if (!isSameOrigin(request)) {
     return NextResponse.json({ error: 'Request refused' }, { status: 403 });
   }
-  const user = await currentUser();
-  if (!user) {
+  const session = await currentSession();
+  if (!session) {
     return NextResponse.json({ error: 'Sign in to continue' }, { status: 401 });
+  }
+  if (!session.access.chat) {
+    return NextResponse.json({ error: 'The assistant is not part of your access.' }, { status: 403 });
   }
 
   const body = bodySchema.safeParse(await request.json().catch(() => null));
@@ -48,7 +51,7 @@ export async function POST(request: Request) {
   }
 
   limiter ??= rateLimiter(env().CHAT_HOURLY_LIMIT, 60 * 60 * 1000);
-  if (!limiter.take(user.email)) {
+  if (!limiter.take(session.user.email)) {
     return NextResponse.json({ error: 'You have reached this hour’s limit of questions. Please try again later.' }, { status: 429 });
   }
 

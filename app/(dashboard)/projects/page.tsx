@@ -9,12 +9,14 @@ import { useState } from 'react';
 import { Empty, Fbar, GpPill, Kpi, PageHead, downloadCSV } from '@/components/ui';
 import { useDrills } from '@/lib/drawer';
 import { C, PLABEL, agg, fmt, fmtP, fyLabel, fyOf, mLabel, periodMonths } from '@/lib/model';
+import { useAccess } from '@/lib/use-dashboard';
 import { useView } from '@/lib/use-model';
 
 const EMPTY = { s: '', scope: 'all', vert: '', ind: '', cli: '', geo: '', model: '' };
 
 export default function ProjectsPage() {
   const { m, fy, period } = useView();
+  const { canExport } = useAccess();
   const [f, setF] = useState(EMPTY);
   const drills = useDrills(m, fy, period);
   const s = f.s.toLowerCase();
@@ -95,9 +97,11 @@ export default function ProjectsPage() {
               {a.n} of {m.P.length} projects{f.scope === 'period' ? ` · ${fyLabel(fy)} ${PLABEL[period]}` : ' · all time'} · sorted newest first · click a row for detail
             </div>
           </div>
-          <button type="button" className="hbtn no-print" onClick={exportView}>
-            ⬇ Export this view
-          </button>
+          {canExport ? (
+            <button type="button" className="hbtn no-print" onClick={exportView}>
+              ⬇ Export this view
+            </button>
+          ) : null}
         </div>
         <div className="tscroll vscroll">
           {rows.length ? (

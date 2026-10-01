@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import { currentUser } from '@/lib/auth';
+import { currentSession } from '@/lib/auth';
 
-/** Who is signed in. */
+/** Who is signed in and what they may do. Both are null when nobody is. */
 export async function GET() {
-  return NextResponse.json({ user: await currentUser() });
+  const session = await currentSession();
+  return NextResponse.json({ user: session?.user ?? null, access: session?.access ?? null });
 }
 
 export const dynamic = 'force-dynamic';

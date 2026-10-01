@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { homeFor } from '@/lib/access';
 import { useSession } from '@/lib/use-dashboard';
 
 /** Why Google sign-in sent the person back here, in plain words. */
@@ -39,9 +40,10 @@ export default function LoginPage() {
     if (reason) setError(REASONS[reason] ?? 'Could not sign in. Please try again.');
   }, []);
 
-  // Already signed in: go straight to the dashboard.
+  // Already signed in: go straight to the first page this person may open.
   useEffect(() => {
-    if (session.data?.user) router.replace('/exec');
+    const access = session.data?.access;
+    if (session.data?.user && access) router.replace(homeFor(access) ?? '/exec');
   }, [session.data, router]);
 
   return (

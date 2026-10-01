@@ -2,20 +2,22 @@
 
 /**
  * The frame every page sits in: header, page body, footer, the details
- * drawer and the chat. Also the login gate, the single read of the sheets,
- * and the notices about anything in the sheets that needs attention.
+ * drawer and the chat. Also the login gate, the check that this person may
+ * open the page, the single read of the sheets, and the notices about
+ * anything in the sheets that needs attention.
  */
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Chat } from '@/components/chat';
 import { Drawer } from '@/components/drawer';
 import { Header } from '@/components/header';
+import { homeFor, pageOfPath } from '@/lib/access';
 import { DrawerProvider } from '@/lib/drawer';
 import { useFilters } from '@/lib/filters';
 import { fyLabel } from '@/lib/model';
 import type { DashboardData } from '@/lib/types';
-import { ApiError, useDashboard, useSession } from '@/lib/use-dashboard';
+import { ApiError, useAccess, useDashboard, useSession } from '@/lib/use-dashboard';
 import { ModelProvider, useBuiltModel } from '@/lib/use-model';
 
 /** What the sheets are missing, in the order it matters: wrong figures first, then incomplete ones. */
@@ -42,13 +44,18 @@ function SheetNotices({ data }: { data: DashboardData }) {
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const session = useSession();
+  const access = useAccess();
   const { data, isLoading, error, refetch } = useDashboard();
   const m = useBuiltModel(data);
   const { setDefaultFY } = useFilters();
   const [asOf, setAsOf] = useState('');
 
   const signedIn = session.data?.user ?? null;
+  const page = pageOfPath(pathname);
+  const mayOpen = page !== null && access.pages.includes(page);
+  const home = homeFor(access);
 
   useEffect(() => {
     if (!session.isLoading && !signedIn) router.replace('/login');
@@ -57,6 +64,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (error instanceof ApiError && error.status === 401) router.replace('/login');
   }, [error, router]);
+
+  // Someone who may not open this page is sent to the first one they may.
+  useEffect(() => {
+    if (signedIn && !mayOpen && home) router.replace(home);
+  }, [signedIn, mayOpen, home, router]);
+
+  // People who may not export cannot print the page to a file either.
+  useEffect(() => {
+    document.body.classList.toggle('no-export', !access.canExport);
+    return () => document.body.classList.remove('no-export');
+  }, [access.canExport]);
 
   useEffect(() => {
     if (m) setDefaultFY(m.defaultFY);
@@ -93,12 +111,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </button>
           </div>
         ) : null}
-        {data ? <SheetNotices data={data} /> : null}
-        {m ? (
+        {!home ? (
+          <div className="banner warn">
+            <b>Your access does not include any page yet.</b> Ask the dashboard&apos;s owner to choose the pages you may open.
+          </div>
+        ) : null}
+        {data && mayOpen ? <SheetNotices data={data} /> : null}
+        {m && mayOpen ? (
           <ModelProvider model={m}>
             <div className="page on">{children}</div>
             <Drawer />
-            <Chat />
+            {access.chat ? <Chat /> : null}
           </ModelProvider>
         ) : null}
       </div>

@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { currentUser } from '@/lib/auth';
+import { currentSession } from '@/lib/auth';
 import { describeSheetError, readSheetCached } from '@/lib/sheets';
 
 /** The whole dashboard payload: every record the pages compute from. */
 export async function GET() {
-  if (!(await currentUser())) {
+  if (!(await currentSession())) {
     return NextResponse.json({ error: 'Sign in to continue' }, { status: 401 });
   }
 

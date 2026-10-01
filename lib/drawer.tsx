@@ -8,7 +8,6 @@
 
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import type { ChartCfg } from '@/components/sc-chart';
-import { useFilters } from './filters';
 import { C, PLABEL, agg, fmt, fmtP, fyLabel, fyMonths, mLabel, mLong, kindOf, pct, periodMonths, sum, type Model, type TrendPeriod } from './model';
 import type { FinancialYear, Period, PipeKind, PipeRow, Project, YearMonth } from './types';
 
@@ -279,10 +278,4 @@ export function useDrills(m: Model, fy: FinancialYear, period: Period) {
     };
     return { monthDrill, clientDrill, catDrill, indDrill, fyDrill, projDrill, periodDrill, drillKind, pipeDrill, overdueDrill };
   }, [m, fy, period, open, perLbl]);
-}
-
-/** A hook for pages that only need `useDrills` with the current selection. */
-export function useActiveDrills(m: Model, fy: FinancialYear) {
-  const { period } = useFilters();
-  return useDrills(m, fy, period);
 }

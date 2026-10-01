@@ -11,8 +11,9 @@ import 'server-only';
 
 import { unstable_cache } from 'next/cache';
 import { JWT } from 'google-auth-library';
+import type { AccessEntry } from './access';
 import { env, serviceAccount } from './env';
-import { MASTER_TABS, PIPELINE_HEADER_CELL, PIPELINE_TABS, ROW_NUMBER, importSheet, type SheetRow, type SheetTables } from './sheet-import';
+import { ACCESS_TAB, MASTER_TABS, PIPELINE_HEADER_CELL, PIPELINE_TABS, ROW_NUMBER, importAccess, importSheet, type SheetRow, type SheetTables } from './sheet-import';
 import type { DashboardData } from './types';
 
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly'];
@@ -118,6 +119,25 @@ export function readSheetCached(): Promise<DashboardData> {
   if (!seconds) return readSheet();
   cachedRead ??= unstable_cache(readSheet, ['dashboard-sheet'], { revalidate: seconds, tags: ['dashboard'] });
   return cachedRead();
+}
+
+async function readAccess(): Promise<AccessEntry[]> {
+  const { values } = await readTabs(env().GOOGLE_SHEET_ID, [ACCESS_TAB]);
+  return importAccess(toRows(values[ACCESS_TAB] ?? []));
+}
+
+let cachedAccess: (() => Promise<AccessEntry[]>) | null = null;
+
+/**
+ * The people in the master workbook's Access tab, read on the same schedule
+ * as the figures. A change there takes effect within
+ * `SHEET_REVALIDATE_SECONDS`.
+ */
+export function readAccessCached(): Promise<AccessEntry[]> {
+  const seconds = env().SHEET_REVALIDATE_SECONDS;
+  if (!seconds) return readAccess();
+  cachedAccess ??= unstable_cache(readAccess, ['dashboard-access'], { revalidate: seconds, tags: ['dashboard'] });
+  return cachedAccess();
 }
 
 /** Turn a Google failure into a message that says what to fix. */

@@ -8,7 +8,7 @@ Every figure comes from two Google Sheets. The app never writes to them.
 
 | Workbook | Tabs read | Variable |
 |---|---|---|
-| Master | Projects, Overheads, Targets | `GOOGLE_SHEET_ID` |
+| Master | Projects, Overheads, Targets, Access | `GOOGLE_SHEET_ID` |
 | Pipeline | Pipeline, Probability | `GOOGLE_PIPELINE_SHEET_ID` |
 
 ## Run locally
@@ -38,12 +38,41 @@ variables from `.env.example` in the Vercel project's settings. `APP_URL` is
 required in production and must be the address people open, for example
 `https://finance.btg.studio`.
 
-## Signing in
+## Signing in and access
 
-People sign in with Google. Only addresses listed in `ALLOWED_EMAILS`, or on
-a domain listed in `ALLOWED_DOMAINS`, are let in. The list is checked on every
-request, so removing someone ends their access as soon as the change is
-deployed.
+People sign in with Google, and only approved people are let in.
+
+Access is managed in the **Access** tab of the master workbook, one row per
+person. A change there takes effect within a minute, with nothing to deploy.
+Keep edit rights on the master workbook to the people who may decide this.
+
+| Column | What to enter |
+|---|---|
+| Email | The person's Google account address |
+| Role | Full, Viewer or Limited. Blank counts as Viewer. |
+| Expires On | Optional. The last day of access. Blank means no end date. |
+| Executive Summary, Forecast, Business Insights, P&L, Historical Performance, Projects, Chat | Tick boxes, used only for a Limited person |
+| Name, Organisation, Added On | For your records. The dashboard does not use them. |
+
+| Role | Pages | Chat | Export (CSV, PDF, print) |
+|---|---|---|---|
+| Full | All | Yes | Yes |
+| Viewer | All | Yes | No |
+| Limited | Only the ticked pages | Only if ticked | No |
+
+To remove someone, delete their row or set Expires On to a past date. An
+expiry date that cannot be read ends the access, rather than leaving it open.
+
+`ALLOWED_EMAILS` names the administrators. They have full access whatever
+the Access tab says, so a mistake in the sheet cannot lock everyone out.
+`ALLOWED_DOMAINS` gives full access to everyone on a domain and is best left
+empty.
+
+**What the roles do not do.** Roles decide which pages, buttons and chat a
+person is shown. They do not change the data sent to a signed-in person's
+browser, which is the same for every role. Nothing stops a person taking a
+screenshot either. Treat Limited as keeping pages out of view, not as a
+guarantee that a determined, technical person cannot reach the figures.
 
 The Google OAuth client needs one redirect address per site address:
 `<site address>/api/auth/callback`.
@@ -61,6 +90,7 @@ page, because figures that depend on it would be wrong.
 | Targets | FY, RevenueTarget, GrossProfitTarget | EBITDATarget, TargetGPPct |
 | Pipeline | Project Name, Stage, Project Start Month, Revenue (Rs L), Cost (Rs L) | Client Name, Owner, Service Line |
 | Probability | Stage, Probability | |
+| Access | Email | Role, Expires On, one tick-box column per page, Chat |
 
 - Months may be a date, `2026-10`, `10/2026` or `Oct-2026`.
 - Targets has one row per year (`FY27`) and, optionally, four quarter rows
@@ -98,7 +128,8 @@ is the monthly limit set in the Anthropic console.
 | `lib/sheets.ts` | Reading the workbooks |
 | `lib/sheet-import.ts` | Mapping sheet columns to records |
 | `lib/model.ts` | All calculations |
-| `lib/auth.ts`, `lib/google-auth.ts` | Sessions, the approved list, Google sign-in |
+| `lib/access.ts` | Roles: who may see what |
+| `lib/auth.ts`, `lib/google-auth.ts` | Sessions, access, Google sign-in |
 | `lib/chat-context.ts`, `lib/chat-prompt.ts` | What the chat is told, and how it is asked to answer |
 | `lib/env.ts` | Configuration, checked at start |
 | `app/(dashboard)/` | The six pages |

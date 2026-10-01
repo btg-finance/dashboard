@@ -13,8 +13,11 @@
  *    Lost, keeps the opportunity off the dashboard.
  *  - Overheads are salaries and operating expenses per month.
  *  - Targets are annual, with optional quarter rows such as `FY27-Q1`.
+ *  - Access, in the master workbook, lists who may open the dashboard, with
+ *    their role, the pages ticked for them and an optional expiry date.
  */
 
+import { CHAT_COLUMN, PAGES, roleFrom, type AccessEntry } from './access';
 import { DEFAULT_GP_PCT, fyOf } from './model';
 import type { DashboardData, Overhead, PipeRow, Project, QuarterTarget, Target, YearMonth } from './types';
 
@@ -34,6 +37,8 @@ export interface SheetTables {
 
 export const MASTER_TABS = ['Projects', 'Overheads', 'Targets'] as const;
 export const PIPELINE_TABS = ['Pipeline', 'Probability'] as const;
+/** Optional. Without it, only the people named in the environment may sign in. */
+export const ACCESS_TAB = 'Access';
 
 /** The Pipeline tab has banner rows above its headers; this cell marks the header row. */
 export const PIPELINE_HEADER_CELL = 'Project Name';
@@ -133,6 +138,28 @@ export function xmonth(v: unknown): YearMonth {
   const year = s.match(/\b\d{4}\b/)?.[0] ?? s.match(/[-\s'’](\d{2})$/)?.[1];
   if (!year) return '';
   return ym(year.length === 2 ? `20${year}` : year, month);
+}
+
+/**
+ * A `YYYY-MM-DD` date from a cell: a spreadsheet date serial, an ISO string,
+ * or day-first text such as `30-Sep-2026`, `30 September 2026` or
+ * `30/09/2026`. Empty when unreadable.
+ */
+export function xdate(v: unknown): string {
+  const iso = (year: number, month: number, day: number): string =>
+    month >= 1 && month <= 12 && day >= 1 && day <= 31 ? `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}` : '';
+  if (typeof v === 'number' && v > 20000 && v < 60000) {
+    const d = new Date(Date.UTC(1899, 11, 30) + Math.floor(v) * 86400000);
+    return iso(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
+  }
+  const s = str(v);
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?!\d)/);
+  if (m) return iso(+m[1]!, +m[2]!, +m[3]!);
+  m = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})$/);
+  if (m) return iso(+m[3]!, +m[2]!, +m[1]!);
+  m = s.match(/^(\d{1,2})[-\s]([a-z]{3})[a-z]*[-\s,]+(\d{4})$/i);
+  if (m) return iso(+m[3]!, MONTHS.indexOf(m[2]!.toLowerCase()) + 1, +m[1]!);
+  return '';
 }
 
 /** A financial year from `FY27`, `2027` or `27`. Zero when unreadable. */
@@ -252,6 +279,32 @@ function importTargets(rows: SheetRow[], errors: string[]): Record<string, Targe
     if (target && all.length === 4) target.q = all;
   }
   return targets;
+}
+
+/** An expiry date that has always passed, for a cell that holds something unreadable. */
+const ALREADY_EXPIRED = '0000-01-01';
+
+/**
+ * The people listed in the Access tab. A row without a usable email is
+ * skipped; when an address appears twice, the first row counts. An expiry
+ * that cannot be read ends the access, rather than leaving it open.
+ */
+export function importAccess(rows: SheetRow[]): AccessEntry[] {
+  const entries = new Map<string, AccessEntry>();
+  for (const row of rows) {
+    const g = rowGetter(row);
+    const email = str(g('Email')).toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || entries.has(email)) continue;
+    const expiry = g('Expires On');
+    entries.set(email, {
+      email,
+      role: roleFrom(str(g('Role'))),
+      pages: PAGES.filter((page) => xbool(g(page.label))).map((page) => page.key),
+      chat: xbool(g(CHAT_COLUMN)),
+      expires: str(expiry) ? xdate(expiry) || ALREADY_EXPIRED : '',
+    });
+  }
+  return [...entries.values()];
 }
 
 export function importSheet(tables: SheetTables): ImportResult {

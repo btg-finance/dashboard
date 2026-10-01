@@ -9,6 +9,7 @@
 import { useEffect } from 'react';
 import { useDrawer, useDrills } from '@/lib/drawer';
 import { agg, fmt, fmtP, mLabel } from '@/lib/model';
+import { useAccess } from '@/lib/use-dashboard';
 import { useView } from '@/lib/use-model';
 import { SCChart } from './sc-chart';
 import { GpPill, Tbl, downloadCSV } from './ui';
@@ -16,6 +17,7 @@ import { GpPill, Tbl, downloadCSV } from './ui';
 export function Drawer() {
   const { cfg, canBack, wide, back, close, toggleWide } = useDrawer();
   const { m, fy, period } = useView();
+  const { canExport } = useAccess();
   const drills = useDrills(m, fy, period);
 
   useEffect(() => {
@@ -110,9 +112,11 @@ export function Drawer() {
         </div>
         <div className="dfoot">
           <span>{rows.length} records</span>
-          <button type="button" className="hbtn" onClick={download}>
-            ⬇ Download this slice
-          </button>
+          {canExport ? (
+            <button type="button" className="hbtn" onClick={download}>
+              ⬇ Download this slice
+            </button>
+          ) : null}
         </div>
       </aside>
     </>

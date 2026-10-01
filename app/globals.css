@@ -227,6 +227,9 @@ td .muted{color:var(--ink4)}
   .kpis.k4{grid-template-columns:repeat(4,1fr)}
   .lines-box{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .meter .fill,.wf-fill{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  /* People who may not export get a blank sheet with one line on it. */
+  body.no-export > *{display:none !important}
+  body.no-export::after{content:"Printing and export are not part of your access.";display:block;padding:40px;font-size:14px}
 }
 
 /* ── CHART TOOLTIP ── */
